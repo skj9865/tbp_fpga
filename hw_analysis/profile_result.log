@@ -1,0 +1,148 @@
+Data path:  /Users/skj_macpro/tbp/data/worldimages/standard_scenes
+Model path: /Users/skj_macpro/tbp/results/monty/pretrained_models/pretrained_ycb_v12/surf_agent_1lm_numenta_lab_obj/pretrained
+Seed: 42, Max eval steps: 500
+
+[PROFILER] Multithreading disabled for accurate profiling
+[ 1/1] CORRECT     target=numenta_mug                    detected=numenta_mug                    state=match        steps=  57 time=4.1s
+
+======================================================================
+RESULTS SUMMARY
+======================================================================
+Total episodes:      1
+Correct (match):     1 (100.0%)
+Correct (MLH):       0 (0.0%)
+Combined correct:    1 (100.0%)
+Wrong:               0 (0.0%)
+
+Object                         Total Match   MLH   Acc%
+----------------------------------------------------
+numenta_mug                        1     1     0 100.0%
+======================================================================
+
+================================================================================
+TOP 50 BY SELF TIME (where CPU actually spends time)
+================================================================================
+         1068323 function calls (1028638 primitive calls) in 4.252 seconds
+
+   Ordered by: internal time
+   List reduced from 1230 to 50 due to restriction <50>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+      527    1.487    0.003    1.496    0.003 {function KDTree.query at 0x13e99e0d0}
+     1616    0.380    0.000    0.380    0.000 {built-in method numpy.core._multiarray_umath.c_einsum}
+    13672    0.271    0.000    0.271    0.000 {method 'reduce' of 'numpy.ufunc' objects}
+     1191    0.248    0.000    0.248    0.000 {method 'dot' of 'numpy.ndarray' objects}
+     1040    0.218    0.000    0.589    0.001 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/utils/spatial_arithmetics.py:129(get_angles_for_all_hypotheses)
+    25648    0.210    0.000    0.235    0.000 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/models/graph_matching.py:1277(get_features_at_node)
+      520    0.173    0.000    3.238    0.006 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/models/evidence_matching/hypotheses_displacer.py:206(_calculate_evidence_for_new_locations)
+      520    0.157    0.000    0.761    0.001 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/models/evidence_matching/hypotheses_displacer.py:330(_get_pose_evidence_matrix)
+      520    0.133    0.000    0.309    0.001 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/utils/graph_matching_utils.py:276(get_custom_distances)
+     1636    0.063    0.000    0.063    0.000 /opt/homebrew/Caskroom/miniforge/base/envs/tbp_fpga/lib/python3.8/site-packages/numpy/lib/function_base.py:1319(diff)
+58359/33563    0.062    0.000    1.007    0.000 {built-in method numpy.core._multiarray_umath.implement_array_function}
+      640    0.053    0.000    0.131    0.000 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/models/evidence_matching/feature_evidence/calculator.py:30(calculate)
+     2366    0.044    0.000    0.044    0.000 /opt/homebrew/Caskroom/miniforge/base/envs/tbp_fpga/lib/python3.8/site-packages/numpy/core/_methods.py:107(_clip_dep_invoke_with_casting)
+      520    0.040    0.000    3.363    0.006 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/models/evidence_matching/hypotheses_displacer.py:137(displace_hypotheses_and_compute_evidence)
+      576    0.031    0.000    0.064    0.000 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/models/evidence_matching/burst_sampling.py:515(_sample_existing)
+       12    0.029    0.002    0.089    0.007 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/models/graph_matching.py:1413(_get_all_node_features)
+        2    0.026    0.013    0.081    0.041 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/environment_utils/transforms.py:365(call)
+     5153    0.025    0.000    0.038    0.000 {built-in method numpy.array}
+      576    0.022    0.000    0.022    0.000 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/utils/evidence_matching.py:343(update)
+     1494    0.020    0.000    0.021    0.000 {built-in method builtins.max}
+      564    0.020    0.000    0.022    0.000 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/utils/evidence_matching.py:398(remove_hyp)
+      283    0.019    0.000    0.019    0.000 {built-in method builtins.min}
+      725    0.018    0.000    0.129    0.000 /opt/homebrew/Caskroom/miniforge/base/envs/tbp_fpga/lib/python3.8/site-packages/numpy/linalg/linalg.py:2357(norm)
+     1636    0.018    0.000    0.236    0.000 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/utils/evidence_matching.py:371(calculate_slopes)
+       48    0.017    0.000    0.037    0.001 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/utils/sensor_processing.py:378(principal_curvatures)
+      640    0.016    0.000    0.040    0.000 /opt/homebrew/Caskroom/miniforge/base/envs/tbp_fpga/lib/python3.8/site-packages/numpy/lib/function_base.py:396(average)
+      125    0.012    0.000    0.012    0.000 {built-in method builtins.sum}
+      240    0.011    0.000    0.012    0.000 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/utils/spatial_arithmetics.py:212(align_multiple_orthonormal_vectors)
+       60    0.010    0.000    0.011    0.000 /opt/homebrew/Caskroom/miniforge/base/envs/tbp_fpga/lib/python3.8/site-packages/torch/serialization.py:1076(load_tensor)
+       68    0.010    0.000    0.010    0.000 {method 'decode' of 'ImagingDecoder' objects}
+      189    0.010    0.000    0.010    0.000 {method 'argsort' of 'numpy.ndarray' objects}
+10715/5196    0.009    0.000    0.022    0.000 /opt/homebrew/Caskroom/miniforge/base/envs/tbp_fpga/lib/python3.8/copy.py:128(deepcopy)
+    10925    0.009    0.000    0.158    0.000 /opt/homebrew/Caskroom/miniforge/base/envs/tbp_fpga/lib/python3.8/site-packages/numpy/core/fromnumeric.py:69(_wrapreduction)
+     1636    0.008    0.000    0.034    0.000 /opt/homebrew/Caskroom/miniforge/base/envs/tbp_fpga/lib/python3.8/site-packages/numpy/lib/nanfunctions.py:68(_replace_nan)
+      576    0.008    0.000    3.739    0.006 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/models/evidence_matching/burst_sampling.py:283(update_hypotheses)
+     4732    0.008    0.000    0.015    0.000 /opt/homebrew/Caskroom/miniforge/base/envs/tbp_fpga/lib/python3.8/site-packages/numpy/core/_methods.py:92(_clip_dep_is_scalar_nan)
+6744/1152    0.007    0.000    0.026    0.000 /opt/homebrew/Caskroom/miniforge/base/envs/tbp_fpga/lib/python3.8/dataclasses.py:1076(_asdict_inner)
+     4556    0.007    0.000    0.007    0.000 {method 'astype' of 'numpy.ndarray' objects}
+    27530    0.007    0.000    0.008    0.000 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/models/graph_matching.py:1254(get_input_channels_in_graph)
+      576    0.006    0.000    3.777    0.007 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/models/evidence_matching/learning_module.py:771(_update_evidence)
+     3354    0.006    0.000    0.006    0.000 {method 'reshape' of 'numpy.ndarray' objects}
+    26949    0.006    0.000    0.014    0.000 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/models/graph_matching.py:1201(get_graph)
+    76191    0.006    0.000    0.006    0.000 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/models/object_model.py:129(feature_mapping)
+    76323    0.006    0.000    0.006    0.000 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/models/object_model.py:113(x)
+       48    0.006    0.000    0.013    0.000 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/utils/sensor_processing.py:524(center_neighbors)
+      520    0.006    0.000    0.006    0.000 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/models/evidence_matching/hypotheses_displacer.py:327(_get_node_distance_weights)
+      584    0.005    0.000    0.005    0.000 {method 'copy' of 'numpy.ndarray' objects}
+     6172    0.005    0.000    0.005    0.000 {built-in method numpy.zeros}
+       96    0.005    0.000    0.006    0.000 /opt/homebrew/Caskroom/miniforge/base/envs/tbp_fpga/lib/python3.8/site-packages/numpy/linalg/linalg.py:1182(eig)
+88111/86745    0.005    0.000    0.005    0.000 {built-in method builtins.len}
+
+
+
+
+================================================================================
+TOP 50 BY CUMULATIVE TIME
+================================================================================
+         1068323 function calls (1028638 primitive calls) in 4.252 seconds
+
+   Ordered by: cumulative time
+   List reduced from 1230 to 50 due to restriction <50>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    4.253    4.253 /Users/skj_macpro/project/tbp_fpga/hw_analysis/../scripts/monty_inference.py:465(main)
+        1    0.001    0.001    4.252    4.252 /Users/skj_macpro/project/tbp_fpga/hw_analysis/../scripts/monty_inference.py:192(run_inference)
+       58    0.000    0.000    4.022    0.069 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/models/monty_base.py:138(step)
+       58    0.000    0.000    4.021    0.069 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/models/abstract_monty_classes.py:68(_matching_step)
+       58    0.000    0.000    3.925    0.068 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/models/graph_matching.py:233(_step_learning_modules)
+       48    0.000    0.000    3.924    0.082 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/models/graph_matching.py:615(matching_step)
+       48    0.000    0.000    3.893    0.081 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/models/graph_matching.py:959(_compute_possible_matches)
+       48    0.001    0.000    3.879    0.081 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/models/evidence_matching/learning_module.py:736(_update_possible_matches)
+      576    0.006    0.000    3.777    0.007 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/models/evidence_matching/learning_module.py:771(_update_evidence)
+      576    0.008    0.000    3.739    0.006 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/models/evidence_matching/burst_sampling.py:283(update_hypotheses)
+      520    0.040    0.000    3.363    0.006 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/models/evidence_matching/hypotheses_displacer.py:137(displace_hypotheses_and_compute_evidence)
+      520    0.173    0.000    3.238    0.006 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/models/evidence_matching/hypotheses_displacer.py:206(_calculate_evidence_for_new_locations)
+      527    0.001    0.000    1.497    0.003 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/models/object_model.py:426(find_nearest_neighbors)
+      527    0.001    0.000    1.497    0.003 /opt/homebrew/Caskroom/miniforge/base/envs/tbp_fpga/lib/python3.8/site-packages/scipy/spatial/_kdtree.py:363(query)
+      527    1.487    0.003    1.496    0.003 {function KDTree.query at 0x13e99e0d0}
+58359/33563    0.062    0.000    1.007    0.000 {built-in method numpy.core._multiarray_umath.implement_array_function}
+      520    0.157    0.000    0.761    0.001 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/models/evidence_matching/hypotheses_displacer.py:330(_get_pose_evidence_matrix)
+     1040    0.218    0.000    0.589    0.001 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/utils/spatial_arithmetics.py:129(get_angles_for_all_hypotheses)
+     1616    0.001    0.000    0.384    0.000 <__array_function__ internals>:177(einsum)
+     1616    0.001    0.000    0.381    0.000 /opt/homebrew/Caskroom/miniforge/base/envs/tbp_fpga/lib/python3.8/site-packages/numpy/core/einsumfunc.py:1009(einsum)
+     1616    0.380    0.000    0.380    0.000 {built-in method numpy.core._multiarray_umath.c_einsum}
+      520    0.133    0.000    0.309    0.001 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/utils/graph_matching_utils.py:276(get_custom_distances)
+    13672    0.271    0.000    0.271    0.000 {method 'reduce' of 'numpy.ufunc' objects}
+     1191    0.248    0.000    0.248    0.000 {method 'dot' of 'numpy.ndarray' objects}
+     1636    0.018    0.000    0.236    0.000 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/utils/evidence_matching.py:371(calculate_slopes)
+    25648    0.210    0.000    0.235    0.000 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/models/graph_matching.py:1277(get_features_at_node)
+      520    0.001    0.000    0.187    0.000 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/utils/spatial_arithmetics.py:325(rotate_pose_dependent_features)
+    10925    0.009    0.000    0.158    0.000 /opt/homebrew/Caskroom/miniforge/base/envs/tbp_fpga/lib/python3.8/site-packages/numpy/core/fromnumeric.py:69(_wrapreduction)
+      640    0.053    0.000    0.131    0.000 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/models/evidence_matching/feature_evidence/calculator.py:30(calculate)
+      725    0.000    0.000    0.130    0.000 <__array_function__ internals>:177(norm)
+      725    0.018    0.000    0.129    0.000 /opt/homebrew/Caskroom/miniforge/base/envs/tbp_fpga/lib/python3.8/site-packages/numpy/linalg/linalg.py:2357(norm)
+     3375    0.002    0.000    0.111    0.000 <__array_function__ internals>:177(sum)
+     3375    0.002    0.000    0.108    0.000 /opt/homebrew/Caskroom/miniforge/base/envs/tbp_fpga/lib/python3.8/site-packages/numpy/core/fromnumeric.py:2162(sum)
+     8515    0.004    0.000    0.093    0.000 /opt/homebrew/Caskroom/miniforge/base/envs/tbp_fpga/lib/python3.8/site-packages/numpy/core/fromnumeric.py:51(_wrapfunc)
+       58    0.000    0.000    0.092    0.002 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/models/monty_base.py:148(aggregate_sensory_inputs)
+        1    0.000    0.000    0.089    0.089 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/models/graph_matching.py:63(pre_episode)
+        1    0.000    0.000    0.089    0.089 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/models/graph_matching.py:591(pre_episode)
+        1    0.000    0.000    0.089    0.089 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/models/evidence_matching/learning_module.py:273(reset)
+        1    0.000    0.000    0.089    0.089 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/models/graph_matching.py:1189(initialize_feature_arrays)
+       12    0.029    0.002    0.089    0.007 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/models/graph_matching.py:1413(_get_all_node_features)
+       48    0.000    0.000    0.085    0.002 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/models/evidence_matching/burst_sampling.py:256(__enter__)
+       48    0.003    0.000    0.085    0.002 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/models/evidence_matching/burst_sampling.py:709(_max_global_slope)
+     1636    0.001    0.000    0.082    0.000 <__array_function__ internals>:177(nansum)
+      576    0.001    0.000    0.082    0.000 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/models/evidence_matching/burst_sampling.py:450(_sample_count)
+        2    0.000    0.000    0.081    0.041 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/environments/two_d_data.py:513(get_3d_scene_point_cloud)
+        2    0.026    0.013    0.081    0.041 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/environment_utils/transforms.py:365(call)
+       58    0.000    0.000    0.080    0.001 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/models/sensor_modules.py:638(step)
+      530    0.002    0.000    0.080    0.000 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/utils/evidence_matching.py:419(select_hypotheses)
+       58    0.001    0.000    0.080    0.001 /Users/skj_macpro/project/tbp_fpga/tbp.monty/src/tbp/monty/frameworks/models/sensor_modules.py:184(process)
+     1636    0.001    0.000    0.080    0.000 /opt/homebrew/Caskroom/miniforge/base/envs/tbp_fpga/lib/python3.8/site-packages/numpy/lib/nanfunctions.py:623(nansum)
+
+
+
+Full profile saved to monty_profile.prof
+

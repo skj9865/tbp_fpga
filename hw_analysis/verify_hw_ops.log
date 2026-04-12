@@ -1,0 +1,52 @@
+Captured data at step 1
+  Graph: hot_sauce
+  Channel: patch
+  Hypotheses (total): 750
+  Hypotheses (tested): 750
+  Graph nodes: 1874
+  K neighbors: 10
+
+============================================================
+Step 6: Rotation
+============================================================
+  OK 6a. Rotate displacement: max_diff=0.00e+00 shape=(750, 3)
+  OK 6b. Search locations: max_diff=0.00e+00 shape=(750, 3)
+  OK 6c. Rotate pose vectors: max_diff=0.00e+00 shape=(750, 3, 3)
+
+============================================================
+Step 7: Nearest Neighbor Search
+============================================================
+  OK 7. NN distances: max_diff=0.00e+00 shape=(750, 10)
+  OK 7. NN indices match: True
+
+============================================================
+Step 8: Custom Distance + Pose Evidence
+============================================================
+  OK 8a. Custom distances: max_diff=0.00e+00 shape=(750, 10)
+  OK 8b. Distance weights: max_diff=0.00e+00 shape=(750, 10)
+  OK 8c. SN angles: max_diff=0.00e+00 shape=(750, 10)
+  OK 8c. SN evidence: max_diff=0.00e+00 shape=(750, 10)
+  OK 8d. CD angles: max_diff=0.00e+00 shape=(750, 10)
+  OK 8d. CD evidence: max_diff=0.00e+00 shape=(750, 10)
+  OK 8e. Pose evidence: max_diff=0.00e+00 shape=(750, 10)
+
+============================================================
+Step 9: Feature Evidence
+============================================================
+  OK 9. Feature evidence: max_diff=0.00e+00 shape=(1874,)
+
+============================================================
+Step 10: Evidence Accumulation
+============================================================
+  Evidence result shape: (750,)
+  Evidence range: [0.1334, 1.6771]
+  Past weight: 1
+  Present weight: 1
+  OK Step 10 verified through steps 6-9 composition
+
+============================================================
+SUMMARY
+============================================================
+All manual arithmetic implementations match Monty's results.
+The operations documented in hw_accel_ops.md are verified correct.
+

@@ -1,0 +1,117 @@
+name: Tools
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  merge_group:
+    types:
+      - checks_requested
+
+jobs:
+
+  should_run_tools:
+    name: should-run-tools
+    runs-on: ubuntu-latest
+    if: ${{ github.repository_owner == 'thousandbrainsproject' }}
+    outputs:
+      should_run_tools: ${{ steps.should_run_tools.outputs.should_run_tools }}
+    steps:
+      - name: Checkout tbp.monty
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+          path: tbp.monty
+      - name: Should Run Tools
+        id: should_run_tools
+        uses: ./tbp.monty/.github/actions/should_run_tools
+        with:
+          git_base_ref: ${{ github.base_ref }}
+          git_sha: ${{ github.event.merge_group.head_sha || github.sha }}
+          github_event_name: ${{ github.event_name }}
+          working_directory: tbp.monty
+
+  test_tools:
+    name: test-tools
+    runs-on: ubuntu-latest
+    if: ${{ github.repository_owner == 'thousandbrainsproject' }}
+    needs:
+      - should_run_tools
+    steps:
+      - name: Checkout tbp.monty
+        if: ${{ needs.should_run_tools.outputs.should_run_tools == 'true' }}
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+          path: tbp.monty
+      - name: Set up ~/tbp
+        if: ${{ needs.should_run_tools.outputs.should_run_tools == 'true' }}
+        run: |
+          mkdir -p ~/tbp
+          ln -s $GITHUB_WORKSPACE/tbp.monty ~/tbp/tbp.monty
+      - name: Set up Python 3.8
+        if: ${{ needs.should_run_tools.outputs.should_run_tools == 'true' }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.8"
+      - name: Install miniconda
+        if: ${{ needs.should_run_tools.outputs.should_run_tools == 'true' }}
+        run: |
+          if [ ! -d ~/miniconda ]
+          then
+            wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh
+            bash ~/miniconda.sh -b -p ~/miniconda
+            rm ~/miniconda.sh
+          fi
+          export PATH="$HOME/miniconda/bin:$PATH"
+          conda --version
+      - name: Create conda environment
+        if: ${{ needs.should_run_tools.outputs.should_run_tools == 'true' }}
+        working-directory: tbp.monty
+        run: |
+          export PATH="$HOME/miniconda/bin:$PATH"
+          (conda env list | grep tbp.monty) && conda remove --name tbp.monty --all --yes || true
+          conda env create
+          source activate tbp.monty
+          pip install -e .[dev,github_readme_sync_tool,print_version_tool,generate_api_docs_tool,future_work_widget_tool]
+          pip list
+          conda list
+      - name: Check style
+        if: ${{ needs.should_run_tools.outputs.should_run_tools == 'true' }}
+        working-directory: tbp.monty
+        run: |
+          export PATH="$HOME/miniconda/bin:$PATH"
+          source activate tbp.monty
+          ruff check tools
+          ruff format --check tools
+      - name: Check types
+        if: ${{ needs.should_run_tools.outputs.should_run_tools == 'true' }}
+        continue-on-error: true # Accept type errors for now
+        working-directory: tbp.monty
+        run: |
+          export PATH="$HOME/miniconda/bin:$PATH"
+          source activate tbp.monty
+          mypy tools
+      - name: Check dependencies
+        if: ${{ needs.should_run_tools.outputs.should_run_tools == 'true' }}
+        working-directory: tbp.monty
+        run: |
+          export PATH="$HOME/miniconda/bin:$PATH"
+          source activate tbp.monty
+          deptry src tools
+      - name: Run tests
+        if: ${{ needs.should_run_tools.outputs.should_run_tools == 'true' }}
+        working-directory: tbp.monty
+        run: |
+          export PATH="$HOME/miniconda/bin:$PATH"
+          source activate tbp.monty
+          pytest tools

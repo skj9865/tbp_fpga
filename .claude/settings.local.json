@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:arxiv.org)",
+      "WebFetch(domain:thousandbrainsproject.readme.io)",
+      "Bash(python3:*)",
+      "Bash(pip3 list:*)",
+      "Bash(conda run:*)",
+      "Bash(MONTY_MODELS=~/tbp/results/monty/pretrained_models MONTY_DATA=~/tbp/data conda run:*)",
+      "Bash(MONTY_MODELS=~/tbp/results/monty/pretrained_models MONTY_DATA=~/tbp/data WANDB_MODE=disabled conda run:*)",
+      "Bash(kill 48647:*)",
+      "Bash(kill 50802:*)",
+      "Bash(kill 50886:*)",
+      "Bash(ls:*)",
+      "Bash(/opt/homebrew/Caskroom/miniforge/base/envs/tbp_fpga/bin/python:*)",
+      "Bash(PYTHONPATH=tbp.monty/src:$PYTHONPATH python3:*)",
+      "Bash(do echo:*)",
+      "Bash(/opt/homebrew/Caskroom/miniforge/base/envs/tbp_fpga/bin/python3:*)",
+      "Bash(file:*)",
+      "WebFetch(domain:docs.luxonis.com)",
+      "Bash(/opt/homebrew/Caskroom/miniforge/base/bin/python:*)",
+      "Bash(python:*)",
+      "Bash(conda env:*)",
+      "Bash(tee hw_analysis/profile_result.log)",
+      "WebFetch(domain:thousandbrains.discourse.group)",
+      "Bash(find:*)",
+      "Bash(conda info:*)",
+      "Read(//Users/skj_macpro/project/tbp_fpga/NR>1 {\n  total++\n  pp=$2\n  target=$8\n  if \\(pp==\"correct\"\\) correct++\n  else if \\(pp==\"correct_mlh\"\\) mlh++\n  else wrong++\n  time_sum+=$11\n} END {\n  combined=correct+mlh\n  printf \"Total: %d episodes\\\\n\", total\n  printf \"Correct \\(match\\): %d \\(%.1f%%\\)\\\\n\", correct, correct/total*100\n  printf \"Correct \\(MLH\\):   %d \\(%.1f%%\\)\\\\n\", mlh, mlh/total*100\n  printf \"Combined:        %d \\(%.1f%%\\)\\\\n\", combined, combined/total*100\n  printf \"Wrong:           %d \\(%.1f%%\\)\\\\n\", wrong, wrong/total*100\n  printf \"Total time:      %.1fs \\(avg %.1fs/ep\\)\\\\n\", time_sum, time_sum/**)",
+      "Read(//Users/skj_macpro/project/tbp_fpga/NR>1 {\n  total++\n  if \\($7==\"True\"\\) correct++\n  if \\($8==\"True\"\\) mlh++\n  if \\($7==\"False\" && $8==\"False\"\\) wrong++\n  sum_time+=$9\n} END {\n  combined=correct+mlh\n  printf \"Total: %d episodes\\\\n\", total\n  printf \"Correct \\(match\\): %d \\(%.1f%%\\)\\\\n\", correct, correct/total*100\n  printf \"Correct \\(MLH\\):   %d \\(%.1f%%\\)\\\\n\", mlh, mlh/total*100\n  printf \"Combined:        %d \\(%.1f%%\\)\\\\n\", combined, combined/total*100\n  printf \"Wrong:           %d \\(%.1f%%\\)\\\\n\", wrong, wrong/total*100\n  printf \"Total time:      %.1fs \\(avg %.1fs/ep\\)\\\\n\", sum_time, sum_time/**)",
+      "Bash(awk:*)",
+      "Bash(WANDB_MODE=disabled conda run -n tbp_fpga python /Users/skj_macpro/project/tbp_fpga/tbp.monty/run.py experiment=world_image_on_scanned_model)",
+      "Bash(tee /Users/skj_macpro/project/tbp_fpga/official_benchmark_run.log)",
+      "Bash(pip show:*)"
+    ]
+  }
+}

@@ -1,0 +1,37 @@
+name: CLA
+
+on:
+  pull_request_target:
+    branches:
+      - main
+  merge_group:
+    types:
+      - checks_requested
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+
+  verify_cla:
+    name: verify-cla
+    runs-on: ubuntu-latest
+    if: ${{ github.repository_owner == 'thousandbrainsproject' }}
+    steps:
+      - name: "Verify CLA"
+        uses: thousandbrainsproject/cla-assistant@v2.0.0
+        if: ${{ github.event_name == 'pull_request_target' }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.CLA_ASSISTANT_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CLA_ASSISTANT_SECRET_ACCESS_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          pull-request-author: ${{ github.event.pull_request.user.login }}
+          pull-request-number: ${{ github.event.pull_request.number }}
+          repo-owner: thousandbrainsproject
+          repo-name: tbp.monty
+      - name: "CLA Passthrough"
+        if: ${{ github.event_name == 'merge_group' }}
+        run: |
+          exit 0

@@ -1,0 +1,33 @@
+# Minimal dependencies for monty_inference.py on ARM/FPGA
+#
+# Setup (run once):
+#   1) pip3 install --upgrade pip setuptools
+#   2) pip3 install --no-deps -e tbp.monty/
+#   3) pip3 install -r scripts/requirements-inference-minimal.txt
+#   4) python3 scripts/patch_lazy_imports.py
+#   5) python3 scripts/monty_inference.py --model-path <path> --data-path <path>
+#
+# Note: torch-geometric is required even in minimal mode because model.pt
+# contains pickled torch_geometric objects (Data class) that need the module
+# to unpickle. Use --no-deps to avoid pulling in heavy sub-dependencies.
+
+# === Core scientific computing ===
+numpy<=1.23.5
+numpy-quaternion==2023.0.3
+scipy>=1.10.1
+
+# === ML / model loading ===
+torch>=1.13.1
+torch-geometric>=2.1.0    # required: model.pt unpickle needs torch_geometric.data.Data
+
+# === Image processing ===
+pillow
+scikit-image
+scikit-learn==1.3.2
+matplotlib>=3.7.3
+
+# === Lightweight transitive deps (tbp.monty internal imports) ===
+omegaconf>=2.3.0          # buffer.py
+pydantic>=2.10.6          # actions.py
+eval_type_backport        # pydantic needs this on python <3.10
+typing-extensions
