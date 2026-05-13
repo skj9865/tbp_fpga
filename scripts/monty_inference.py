@@ -40,7 +40,7 @@ from tbp.monty.frameworks.models.evidence_matching.learning_module import (
     EvidenceGraphLM,
 )
 from tbp.monty.frameworks.models.goal_state_generation import (
-    EvidenceGoalStateGenerator,
+    GraphGoalStateGenerator,
 )
 from tbp.monty.frameworks.models.graph_matching import MontyForGraphMatching
 from tbp.monty.frameworks.models.motor_policies import InformedPolicy
@@ -101,12 +101,8 @@ def create_sensor_modules():
 
 def create_learning_module():
     """Create EvidenceGraphLM with benchmark configuration."""
-    gsg = EvidenceGoalStateGenerator(
+    gsg = GraphGoalStateGenerator(
         goal_tolerances=dict(location=0.015),
-        elapsed_steps_factor=10,
-        min_post_goal_success_steps=5,
-        x_percent_scale_factor=0.75,
-        desired_object_distance=0.03,
     )
 
     lm = EvidenceGraphLM(
