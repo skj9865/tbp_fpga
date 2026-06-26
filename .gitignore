@@ -1,5 +1,15 @@
-  .claude/
-  __pycache__/
-  *.pyc
-  *.pyo
-  .DS_Store
+# OS / editor
+.DS_Store
+__pycache__/
+*.pyc
+*.pyo
+
+# Claude Code session state
+.claude/
+
+# Experiment outputs (per-machine, regenerable)
+eval.csv
+eval_*.csv
+Log/
+*.log
+*.prof
