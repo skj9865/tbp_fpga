@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""RGBD capture script for OAK-D Lite camera.
+"""RGBD capture script for OAK-D Pro camera.
 
 Captures RGB+Depth frames in the same format as the world image dataset,
 so SaccadeOnImageEnvironment can load them without modification.
@@ -27,14 +27,14 @@ from PIL import Image
 
 TARGET_W, TARGET_H = 640, 480
 
-# FOV matching: crop OAK-D's wider FOV to match iPad's hfov used by Monty
-OAKD_HFOV = 69.4    # OAK-D Lite preview actual hfov (from calibration)
-IPAD_HFOV = 54.201  # iPad front camera hfov hardcoded in Monty
-
-# Capture at larger size so that after center-crop we still get 640x480
-_CROP_RATIO = np.tan(np.radians(IPAD_HFOV / 2)) / np.tan(np.radians(OAKD_HFOV / 2))
-CAPTURE_W = int(np.ceil(TARGET_W / _CROP_RATIO / 16) * 16)   # ~880, multiple of 16
-CAPTURE_H = int(np.ceil(TARGET_H / _CROP_RATIO / 2) * 2)     # ~654, keep even
+# OAK-D Pro RGB at native 640x480 preview has HFOV ~63.75 deg
+# (from calibration intrinsics: fx=514.6 -> 2*atan(W/(2*fx))=63.75).
+# Non-standard preview sizes trigger ISP cropping (e.g. 864x642 gives ~50.4 deg),
+# so we capture at standard 640x480 directly. The downstream Monty environment
+# (tbp.monty/.../two_d_data.py) must be configured for this HFOV (default 54.201
+# is for iPad — patch it to 63.75 to match OAK-D Pro output).
+OAKD_HFOV_NATIVE = 63.75
+CAPTURE_W, CAPTURE_H = TARGET_W, TARGET_H
 
 
 def build_pipeline():
@@ -48,44 +48,69 @@ def build_pipeline():
     """
     pipeline = dai.Pipeline()
 
-    # Color camera
+    # Color camera (OAK-D Pro: IMX378, 12MP)
     cam_rgb = pipeline.create(dai.node.ColorCamera)
     cam_rgb.setPreviewSize(CAPTURE_W, CAPTURE_H)
     cam_rgb.setInterleaved(False)
     cam_rgb.setColorOrder(dai.ColorCameraProperties.ColorOrder.BGR)
-    # OAK-D Lite native sensor is 4208x3120; 1080P causes mismatch.
-    # Use 4K and let preview handle the downscale.
+    # IMX378 native is 4056x3040 (12MP). Use 4K mode for preview downscale path.
     cam_rgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_4_K)
     cam_rgb.setFps(30)
 
-    # Mono cameras for stereo depth
+    # Mono cameras for stereo depth (OAK-D Pro: OV9282, 1MP -> 800P available)
     mono_left = pipeline.create(dai.node.MonoCamera)
-    mono_left.setResolution(dai.MonoCameraProperties.SensorResolution.THE_480_P)
+    mono_left.setResolution(dai.MonoCameraProperties.SensorResolution.THE_800_P)
     mono_left.setBoardSocket(dai.CameraBoardSocket.CAM_B)
 
     mono_right = pipeline.create(dai.node.MonoCamera)
-    mono_right.setResolution(dai.MonoCameraProperties.SensorResolution.THE_480_P)
+    mono_right.setResolution(dai.MonoCameraProperties.SensorResolution.THE_800_P)
     mono_right.setBoardSocket(dai.CameraBoardSocket.CAM_C)
 
-    # Stereo depth
+    # Stereo depth. For glossy/textureless objects (e.g. Numenta mug), prefer
+    # accuracy over density — sparse-but-clean depth matches better than
+    # dense-but-noisy. Try FAST_ACCURACY; fall back to FAST_DENSITY.
     stereo = pipeline.create(dai.node.StereoDepth)
-    stereo.setDefaultProfilePreset(dai.node.StereoDepth.PresetMode.FAST_DENSITY)
+    try:
+        stereo.setDefaultProfilePreset(dai.node.StereoDepth.PresetMode.FAST_ACCURACY)
+        print("Preset: FAST_ACCURACY")
+    except AttributeError:
+        stereo.setDefaultProfilePreset(dai.node.StereoDepth.PresetMode.FAST_DENSITY)
+        print("Preset: FAST_DENSITY (FAST_ACCURACY unavailable)")
     stereo.setDepthAlign(dai.CameraBoardSocket.CAM_A)  # Align to RGB
     stereo.setSubpixel(True)
     stereo.setExtendedDisparity(True)
     stereo.setOutputSize(CAPTURE_W, CAPTURE_H)
+    try:
+        stereo.setLeftRightCheck(True)
+    except AttributeError:
+        pass
+    # Increase post-processing resources so speckle filter can use a bigger range
+    try:
+        stereo.setPostProcessingHardwareResources(3, 3)
+    except AttributeError:
+        pass
 
-    # Post-processing filters to reduce stereo noise
-    # Note: median filter disabled — subpixel+extended disparity exceeds max (1024)
+    # Post-processing filters
     pp = stereo.initialConfig.postProcessing
+    # Decimation: downsamples input depth before filters, suppresses noise
+    try:
+        pp.decimationFilter.decimationFactor = 2
+    except AttributeError:
+        pass
     pp.speckleFilter.enable = True
-    pp.speckleFilter.speckleRange = 28  # max supported by default memory
+    pp.speckleFilter.speckleRange = 28
     pp.temporalFilter.enable = True
+    # Stronger temporal smoothing (alpha closer to 0 = more smoothing)
+    try:
+        pp.temporalFilter.alpha = 0.3
+        pp.temporalFilter.delta = 20
+    except AttributeError:
+        pass
     pp.spatialFilter.enable = True
-    pp.spatialFilter.holeFillingRadius = 2
-    pp.spatialFilter.numIterations = 1
+    pp.spatialFilter.holeFillingRadius = 5
+    pp.spatialFilter.numIterations = 2
     pp.thresholdFilter.minRange = 200
-    pp.thresholdFilter.maxRange = 4000
+    pp.thresholdFilter.maxRange = 1500   # narrowed for closer mug capture (was 4000)
 
     mono_left.out.link(stereo.left)
     mono_right.out.link(stereo.right)
@@ -119,9 +144,8 @@ def crop_center(frame, target_w, target_h):
 
 
 def convert_rgb(bgr_frame):
-    """BGR frame (CAPTURE size) → center crop to TARGET → RGBA (no upscale)."""
-    cropped = crop_center(bgr_frame, TARGET_W, TARGET_H)
-    rgb = cv2.cvtColor(cropped, cv2.COLOR_BGR2RGB)
+    """BGR frame (already TARGET size) → RGBA."""
+    rgb = cv2.cvtColor(bgr_frame, cv2.COLOR_BGR2RGB)
     rgba = np.zeros((TARGET_H, TARGET_W, 4), dtype=np.uint8)
     rgba[:, :, :3] = rgb
     rgba[:, :, 3] = 255
@@ -129,10 +153,9 @@ def convert_rgb(bgr_frame):
 
 
 def convert_depth(depth_mm):
-    """uint16 mm depth (CAPTURE size) → center crop to TARGET → float32 meters."""
-    cropped = crop_center(depth_mm, TARGET_W, TARGET_H)
-    depth_f = cropped.astype(np.float32) / 1000.0
-    depth_f[cropped == 0] = np.nan
+    """uint16 mm depth (already TARGET size) → float32 meters, NaN for invalid."""
+    depth_f = depth_mm.astype(np.float32) / 1000.0
+    depth_f[depth_mm == 0] = np.nan
     return depth_f
 
 
@@ -206,7 +229,7 @@ def capture_one(q_rgb, q_depth, scene_dir, version):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Capture RGBD frames from OAK-D Lite for Monty inference"
+        description="Capture RGBD frames from OAK-D Pro for Monty inference"
     )
     parser.add_argument("--object", required=True, help="Object name (e.g. numenta_mug)")
     parser.add_argument("--index", required=True, type=int, help="Scene index")
@@ -236,6 +259,14 @@ def main():
         "--interval", type=float, default=1.0,
         help="Headless mode: seconds between captures (default: 1.0)"
     )
+    parser.add_argument(
+        "--ir-brightness", type=int, default=1200,
+        help="OAK-D Pro IR dot projector brightness in mA (0-1200, 0=off, default: 1200=max)"
+    )
+    parser.add_argument(
+        "--flood-brightness", type=int, default=0,
+        help="OAK-D Pro IR flood light brightness in mA (0-1500, default: 0=off)"
+    )
     args = parser.parse_args()
 
     scene_name = f"{args.index}_{args.object}"
@@ -249,8 +280,7 @@ def main():
     mode = "HEADLESS" if args.headless else ("PREVIEW ONLY" if args.preview_only else f"CAPTURE (start v={version})")
     print(f"Scene: {scene_name} | Mode: {mode}")
     print(f"Output: {scene_dir}")
-    print(f"Capture: {CAPTURE_W}x{CAPTURE_H} -> crop center {TARGET_W}x{TARGET_H} "
-          f"(FOV {OAKD_HFOV:.1f} -> {IPAD_HFOV:.1f})")
+    print(f"Capture: native {TARGET_W}x{TARGET_H} (HFOV {OAKD_HFOV_NATIVE:.2f} deg)")
     if not args.headless:
         print("Controls: 'c' = capture, 'q' = quit")
     print()
@@ -262,6 +292,35 @@ def main():
     q_depth = depth_out.createOutputQueue()
 
     pipeline.start()
+
+    # Enable OAK-D Pro IR dot projector (and optional flood light) for
+    # active stereo. depthai v3 uses Intensity (0.0-1.0); v2 used Brightness (mA).
+    dot_intensity = args.ir_brightness / 1200.0  # mA -> normalized
+    flood_intensity = args.flood_brightness / 1500.0
+    try:
+        device = pipeline.getDefaultDevice()
+        if device is not None:
+            ok = False
+            # Try v3 API first
+            if hasattr(device, "setIrLaserDotProjectorIntensity"):
+                device.setIrLaserDotProjectorIntensity(dot_intensity)
+                if flood_intensity > 0:
+                    device.setIrFloodLightIntensity(flood_intensity)
+                ok = True
+                print(f"IR projector (v3): dot={dot_intensity:.2f} "
+                      f"flood={flood_intensity:.2f}")
+            elif hasattr(device, "setIrLaserDotProjectorBrightness"):
+                device.setIrLaserDotProjectorBrightness(args.ir_brightness)
+                if args.flood_brightness > 0:
+                    device.setIrFloodLightBrightness(args.flood_brightness)
+                ok = True
+                print(f"IR projector (v2): dot={args.ir_brightness}mA "
+                      f"flood={args.flood_brightness}mA")
+            if not ok:
+                print("IR control: no compatible API found")
+    except Exception as e:
+        print(f"IR control failed: {e}")
+
     try:
         if args.headless:
             # Headless mode: warmup then auto-capture
@@ -287,7 +346,7 @@ def main():
             depth_mm = None
             captures_done = 0
 
-            win_name = f"OAK-D Lite | {scene_name}"
+            win_name = f"OAK-D Pro | {scene_name}"
             cv2.namedWindow(win_name, cv2.WINDOW_AUTOSIZE)
 
             while pipeline.isRunning():
@@ -300,9 +359,8 @@ def main():
                     depth_mm = in_depth.getFrame()
 
                 if bgr_frame is not None and depth_mm is not None:
-                    preview_bgr = crop_center(bgr_frame, TARGET_W, TARGET_H)
-                    depth_vis = depth_to_colormap(crop_center(depth_mm, TARGET_W, TARGET_H))
-                    preview = np.hstack([preview_bgr, depth_vis])
+                    depth_vis = depth_to_colormap(depth_mm)
+                    preview = np.hstack([bgr_frame, depth_vis])
                     cv2.imshow(win_name, preview)
 
                 key = cv2.waitKey(1) & 0xFF

@@ -557,10 +557,10 @@ class SaccadeOnImageEnvironment(SimulatedEnvironment):
             resolutions=[self.current_depth_image.shape],
             world_coord=True,
             zooms=1,
-            # hfov of iPad front camera from
-            # https://developer.apple.com/library/archive/documentation/DeviceInformation/Reference/iOSDeviceCompatibility/Cameras/Cameras.html
-            # TODO: determine dynamically which device is sending data
-            hfov=54.201,
+            # HFOV — restored to iPad/Robot-Lab-training value.
+            # D405 capture script center-crops native 89.28 deg to match this.
+            # (OAK-D Pro path used 63.75 deg; D405 path uses 54.201 here.)
+            hfov=54.201,  # iPad TrueDepth — matches Robot Lab training data
             get_all_points=True,
             use_semantic_sensor=False,
             depth_clip_sensors=[0],

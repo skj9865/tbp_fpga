@@ -32,7 +32,32 @@
       "Bash(awk:*)",
       "Bash(WANDB_MODE=disabled conda run -n tbp_fpga python /Users/skj_macpro/project/tbp_fpga/tbp.monty/run.py experiment=world_image_on_scanned_model)",
       "Bash(tee /Users/skj_macpro/project/tbp_fpga/official_benchmark_run.log)",
-      "Bash(pip show:*)"
+      "Bash(pip show:*)",
+      "WebFetch(domain:docs.google.com)",
+      "Bash(grep -rln -i \"unsupervised\" --include=\"*.py\" .)",
+      "Bash(grep -rn \"^class .*Experiment\" frameworks/experiments/*.py)",
+      "Read(//Users/skj_macpro/tbp/results/monty/pretrained_models/**)",
+      "Read(//Users/skj_macpro/tbp/**)",
+      "Bash(gh api *)",
+      "Bash(system_profiler SPUSBDataType)",
+      "Bash(open /tmp/d405_rgb_grid.png)",
+      "Bash(open /tmp/d405_depth_grid.png)",
+      "Bash(open *)",
+      "Bash(/opt/miniconda3/envs/*/bin/python -c \"import pyorbbecsdk; print\\(pyorbbecsdk.__file__\\)\")",
+      "Bash(/usr/bin/python3 -c \"import pyorbbecsdk\")",
+      "Bash(/opt/homebrew/Caskroom/miniforge/base/envs/tbp_fpga/bin/pip show *)",
+      "Bash(conda create *)",
+      "Bash(/opt/homebrew/Caskroom/miniforge/base/envs/orbbec/bin/pip install *)",
+      "Bash(/opt/homebrew/Caskroom/miniforge/base/envs/orbbec/bin/python -c ' *)",
+      "Bash(/opt/homebrew/Caskroom/miniforge/base/envs/orbbec/bin/python /Users/skj_macpro/project/tbp_fpga/scripts/check_femto_calibration.py)",
+      "Bash(/opt/homebrew/Caskroom/miniforge/base/envs/orbbec/bin/python *)",
+      "Bash(/opt/homebrew/Caskroom/miniforge/base/envs/orbbec/bin/pip index *)",
+      "Bash(/opt/homebrew/Caskroom/miniforge/base/envs/orbbec/bin/pip show *)",
+      "Bash(git config *)",
+      "Bash(git check-ignore *)",
+      "Bash(git ls-tree *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }

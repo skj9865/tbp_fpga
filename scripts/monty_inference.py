@@ -186,12 +186,26 @@ def load_pretrained_model(model, model_path):
 # ============================================================================
 
 def run_inference(data_path, model_path, max_eval_steps, seed, log_level,
-                  output_csv=None, max_episodes=None):
+                  output_csv=None, max_episodes=None,
+                  scenes=None, versions=None):
     """Run the evaluation loop.
+
+    Args:
+        scenes: list of scene indices (default: SCENES, 48 episodes)
+        versions: list of version indices, same length as scenes
 
     Returns:
         List of dicts with per-episode results.
     """
+    if scenes is None:
+        scenes = SCENES
+    if versions is None:
+        versions = VERSIONS
+    if len(scenes) != len(versions):
+        raise ValueError(
+            f"scenes ({len(scenes)}) and versions ({len(versions)}) must match"
+        )
+
     # Setup logging
     logging.basicConfig(
         level=getattr(logging, log_level.upper(), logging.WARNING),
@@ -217,8 +231,8 @@ def run_inference(data_path, model_path, max_eval_steps, seed, log_level,
     # Create environment interface (shares motor_system with model)
     rng = np.random.RandomState(seed)
     env_interface = SaccadeOnImageEnvironmentInterface(
-        scenes=SCENES,
-        versions=VERSIONS,
+        scenes=scenes,
+        versions=versions,
         env=env,
         motor_system=model.motor_system,
         rng=rng,
@@ -233,7 +247,7 @@ def run_inference(data_path, model_path, max_eval_steps, seed, log_level,
     # Pre-epoch: set up first object
     env_interface.pre_epoch()
 
-    num_episodes = len(SCENES)
+    num_episodes = len(scenes)
     if max_episodes is not None:
         num_episodes = min(max_episodes, num_episodes)
     results = []
@@ -447,7 +461,7 @@ def default_model_path():
     return os.path.join(
         monty_models,
         "pretrained_ycb_v12",
-        "surf_agent_1lm_numenta_lab_obj",
+        "surf_agent_1lm_tbp_robot_lab",
         "pretrained",
     )
 
@@ -505,12 +519,33 @@ def main():
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
         help="Python logging level (default: WARNING)",
     )
+    parser.add_argument(
+        "--scenes",
+        type=str,
+        default=None,
+        help="Comma-separated scene indices, e.g. '0,0,0,0' "
+             "(default: 12 objects x 4 versions = 48 episodes)",
+    )
+    parser.add_argument(
+        "--versions",
+        type=str,
+        default=None,
+        help="Comma-separated version indices, same length as --scenes "
+             "(default: 0,1,2,3 repeating)",
+    )
 
     args = parser.parse_args()
+
+    scenes = [int(x) for x in args.scenes.split(",")] if args.scenes else None
+    versions = [int(x) for x in args.versions.split(",")] if args.versions else None
+    if (scenes is None) != (versions is None):
+        parser.error("--scenes and --versions must be specified together")
 
     print(f"Data path:  {args.data_path}")
     print(f"Model path: {args.model_path}")
     print(f"Seed: {args.seed}, Max eval steps: {args.max_eval_steps}")
+    if scenes is not None:
+        print(f"Custom episodes: scenes={scenes} versions={versions}")
     print()
 
     results = run_inference(
@@ -521,6 +556,8 @@ def main():
         log_level=args.log_level,
         output_csv=args.output_csv,
         max_episodes=args.max_episodes,
+        scenes=scenes,
+        versions=versions,
     )
 
     print_results(results)
