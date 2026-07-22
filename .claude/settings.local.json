@@ -92,7 +92,9 @@
       "Bash(git fetch *)",
       "Bash(git rebase *)",
       "Bash(cd *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(git merge *)",
+      "Bash(git push *)"
     ]
   }
 }
