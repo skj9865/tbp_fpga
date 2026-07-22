@@ -13,3 +13,6 @@ eval_*.csv
 Log/
 *.log
 *.prof
+
+# depthai crash dumps / telemetry (per-machine, don't track)
+.cache/
