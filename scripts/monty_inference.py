@@ -120,12 +120,27 @@ def create_learning_module():
                 principal_curvatures_log=np.ones(2),
             )
         ),
-        x_percent_threshold=20,
+        # 20 -> 8: with many similar objects (bottles/cans) the default 20 kept
+        # the LM below its uniqueness threshold until the 500-step time-out, so
+        # near-miss frames lost on evidence. Lowering to 8 keeps accuracy
+        # identical (13/28 on the D405 v3 set, same as 20) while roughly halving
+        # median match steps (354 -> 224 on demo objects) — faster real-time
+        # inference. Below 8, tomato_soup_can collapses (3/4 -> 1/4).
+        x_percent_threshold=8,
         evidence_threshold_config="all",
         max_graph_size=0.3,
         num_model_voxels_per_dim=100,
         gsg=gsg,
         hypotheses_updater_class=BurstSamplingHypothesesUpdater,
+        # Burst-sampling params validated on the D405 v3 set this session and
+        # kept at these values (both differ from the stock burst defaults of
+        # max_nneighbors=3, deletion_trigger_slope=0.5, sampling_multiplier=0.4):
+        #  - deletion_trigger_slope=0.2: 0.3 dropped accuracy (43% vs 46%).
+        #  - sampling_multiplier left at the 0.4 default: 0.2 was 16% faster but
+        #    weakened the demo ace montys_brain (4/4 -> 3/4), 0.8 matched default
+        #    accuracy but was slower wall-clock. 0.4 is the speed/accuracy knee.
+        # A burst-vs-default A/B: default is +8% accuracy (54 vs 46%) but ~35%
+        # more steps; burst kept for real-time speed, and demo objects tie at 4/4.
         hypotheses_updater_args=dict(
             max_nneighbors=10,
             deletion_trigger_slope=0.2,
@@ -472,6 +487,26 @@ def default_data_path():
     return os.path.join(monty_data, "worldimages", "standard_scenes")
 
 
+def scan_all_episodes(data_path):
+    """Build (scenes, versions) for every rgb_{v}.png under data_path.
+
+    Scene indices match SaccadeOnImageEnvironment, which sets
+    scene_names = [a.name for a in sorted(data_path.glob("[!.]*"))] and indexes
+    it by scene_id. enumerate() over the same sorted glob preserves that index
+    even when non-dir entries are skipped.
+    """
+    dp = Path(data_path).expanduser()
+    scenes, versions = [], []
+    for idx, d in enumerate(sorted(dp.glob("[!.]*"))):
+        if not d.is_dir():
+            continue
+        vs = sorted(int(f.stem.split("_")[1]) for f in d.glob("rgb_*.png"))
+        for v in vs:
+            scenes.append(idx)
+            versions.append(v)
+    return scenes, versions
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Standalone Monty inference (world_image_on_scanned_model)"
@@ -533,18 +568,43 @@ def main():
         help="Comma-separated version indices, same length as --scenes "
              "(default: 0,1,2,3 repeating)",
     )
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Run every (scene, version) found under --data-path. Scene order "
+             "matches the env; overrides --scenes/--versions.",
+    )
+    parser.add_argument(
+        "--hfov",
+        type=float,
+        default=54.201,
+        help="Horizontal FOV (deg) for depth->3D projection. Must match the "
+             "capture camera: 54.201 = iPad/D405/Femto (default), 63.75 = OAK-D Pro.",
+    )
 
     args = parser.parse_args()
 
+    # Passed to two_d_data.py's DepthTo3DLocations at run time (read there from
+    # MONTY_HFOV) so no source edit / sed-toggle is needed per camera.
+    os.environ["MONTY_HFOV"] = repr(args.hfov)
+
     scenes = [int(x) for x in args.scenes.split(",")] if args.scenes else None
     versions = [int(x) for x in args.versions.split(",")] if args.versions else None
-    if (scenes is None) != (versions is None):
+    if args.all:
+        if scenes is not None or versions is not None:
+            parser.error("--all cannot be combined with --scenes/--versions")
+        scenes, versions = scan_all_episodes(args.data_path)
+        if not scenes:
+            parser.error(f"--all found no rgb_*.png under {args.data_path}")
+    elif (scenes is None) != (versions is None):
         parser.error("--scenes and --versions must be specified together")
 
     print(f"Data path:  {args.data_path}")
     print(f"Model path: {args.model_path}")
     print(f"Seed: {args.seed}, Max eval steps: {args.max_eval_steps}")
-    if scenes is not None:
+    if args.all:
+        print(f"--all: {len(scenes)} episodes scanned from {args.data_path}")
+    elif scenes is not None:
         print(f"Custom episodes: scenes={scenes} versions={versions}")
     print()
 
