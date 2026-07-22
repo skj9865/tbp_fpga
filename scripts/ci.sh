@@ -21,4 +21,10 @@ if ! python -c "import depthai" 2>/dev/null; then
     exit 1
 fi
 
-exec python "$(dirname "$(readlink -f "$0")")/capture_and_infer.py" "$@"
+# Default to capture_and_infer.py; -m <name> runs a different script in the
+# same dir (e.g. -m live_infer for continuous live inference).
+SCRIPT="capture_and_infer"
+if [ "${1:-}" = "-m" ]; then
+    SCRIPT="$2"; shift 2
+fi
+exec python "$(dirname "$(readlink -f "$0")")/${SCRIPT}.py" "$@"

@@ -372,13 +372,18 @@ CAMERAS = {"oak": OakCamera, "femto": FemtoCamera, "d405": D405Camera}
 # Warm Monty model
 # ---------------------------------------------------------------------------
 
-def build_warm_model(model_path, hfov, depth_clip=None):
+def build_warm_model(model_path, hfov, depth_clip=None, keep_objects=None):
     """Build the Monty model once and load pretrained weights (kept warm).
 
     Sets MONTY_HFOV before any environment is created so two_d_data's
     DepthTo3DLocations projects with the OAK-D Pro FOV, and optionally
     MONTY_DEPTH_CLIP, the threshold beyond which process_depth_data marks
     pixels off-object (default 0.4m).
+
+    keep_objects: if given, prune the pretrained graph memory down to these
+    object ids. Inference cost is ~linear in the number of objects (measured:
+    10 objs 13.9s/frame, 4 objs 7.3s, 3 objs 6.2s, 1 obj 0.65s), so loading
+    only the demo objects is the biggest speed lever with no accuracy loss.
     """
     os.environ["MONTY_HFOV"] = repr(float(hfov))
     if depth_clip is not None:
@@ -393,7 +398,36 @@ def build_warm_model(model_path, hfov, depth_clip=None):
     model = mi.create_model(sensor_modules, [lm], motor_system)
     model.set_experiment_mode(ExperimentMode.EVAL)
     mi.load_pretrained_model(model, model_path)
+    if keep_objects:
+        prune_graph_memory(lm, keep_objects)
     return model, lm
+
+
+def prune_graph_memory(lm, keep_objects):
+    """Drop all but keep_objects from the LM's graph memory (in place).
+
+    Speeds up inference (cost is ~linear in object count). Raises if any
+    requested object isn't in the pretrained model.
+    """
+    gm = lm.graph_memory
+    available = set(gm.models_in_memory.keys())
+    keep = set(keep_objects)
+    missing = keep - available
+    if missing:
+        raise ValueError(
+            f"objects not in model: {sorted(missing)}. "
+            f"available: {sorted(available)}"
+        )
+    for gid in list(gm.models_in_memory.keys()):
+        if gid not in keep:
+            del gm.models_in_memory[gid]
+    # Keep the graph_id -> target-label map consistent with what remains.
+    m = getattr(lm, "graph_id_to_target", None)
+    if isinstance(m, dict):
+        for gid in list(m.keys()):
+            if gid not in keep:
+                del m[gid]
+    print(f"Graph memory pruned to {len(keep)} object(s): {sorted(keep)}")
 
 
 def infer_scene(model, lm, data_path, seed, max_eval_steps):
@@ -517,7 +551,10 @@ def default_model_path():
 
 def run(args):
     print("Loading Monty model (warm)...")
-    model, lm = build_warm_model(args.model_path, args.hfov, args.depth_clip)
+    keep = ([o.strip() for o in args.objects.split(",")] if args.objects
+            else None)
+    model, lm = build_warm_model(args.model_path, args.hfov, args.depth_clip,
+                                 keep_objects=keep)
     clip = args.depth_clip if args.depth_clip is not None else 0.4
     print(f"Model ready. HFOV={args.hfov} deg  depth_clip={clip}m  "
           f"depth={'RAW' if args.no_isolate else 'ISOLATED'}")
@@ -726,6 +763,11 @@ def main():
                         "while leaving depth untouched. 'sw' does the opposite "
                         "and measured worse (2/4 -> 0/4). 'none' leaves a ~100px "
                         "offset so hue reads off-object.")
+    p.add_argument("--objects", default=None,
+                   help="Comma-separated object ids to keep in memory (e.g. "
+                        "montys_brain,tomato_soup_can). Inference cost is "
+                        "~linear in object count, so limiting to demo objects "
+                        "is the biggest speedup. Default: all 10.")
     p.add_argument("--object", default="live",
                    help="Object name; if a real class name (e.g. numenta_mug) "
                         "the result is also scored correct/wrong (default: live)")
