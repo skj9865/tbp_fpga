@@ -82,6 +82,15 @@ def build_pipeline(align_mode="none"):
     config.enable_stream(depth_profile)
     config.enable_stream(color_profile)
 
+    # Bolt delivers depth/color in separate framesets by default. AlignFilter
+    # (sw) and HW align both need depth+color in ONE frameset, so turn on
+    # frame sync whenever any alignment is requested.
+    if align_mode in ("sw", "hw"):
+        try:
+            pipeline.enable_frame_sync()
+        except Exception as e:
+            print(f"enable_frame_sync failed ({e}) — align may starve")
+
     hw_aligned = False
     if align_mode == "hw":
         try:
@@ -125,7 +134,9 @@ def grab_synced(pipeline, sw_align, timeout_ms=2000, max_retries=20):
             try:
                 fs = sw_align.process(fs)
             except Exception:
-                pass
+                fs = None
+        if fs is None:
+            continue
         df = fs.get_depth_frame()
         cf = fs.get_color_frame()
         if df is not None and cf is not None:
@@ -190,6 +201,48 @@ def depth_to_colormap(depth_units, max_units=2000):
     return cmap
 
 
+def _center_place(src, out_h, out_w):
+    """Place src into a black out_h x out_w canvas, centered (crop or pad)."""
+    out = np.zeros((out_h, out_w, src.shape[2]), dtype=src.dtype)
+    sh, sw = src.shape[:2]
+    ch, cw = min(sh, out_h), min(sw, out_w)
+    oy, ox = (out_h - ch) // 2, (out_w - cw) // 2
+    sy, sx = (sh - ch) // 2, (sw - cw) // 2
+    out[oy:oy + ch, ox:ox + cw] = src[sy:sy + ch, sx:sx + cw]
+    return out
+
+
+def overlay_rgb_depth(rgb_bgr, depth_vis, shift_y=0, shift_x=0, scale=1.0,
+                      alpha=0.45):
+    """Blend depth colormap onto RGB, depth scaled then shifted.
+
+    Preview-only aid to eyeball RGB<->depth registration without aligning the
+    saved depth (saved data stays raw / --align none). The Femto Bolt RGB and
+    ToF are separate optics with different native FOV + a baseline, so the raw
+    streams differ in position AND scale. Tune live in GUI: i/k = up/down,
+    j/l = left/right, u/o = depth bigger/smaller. shift_y > 0 moves depth DOWN,
+    shift_x > 0 RIGHT, scale > 1 enlarges depth.
+    """
+    h, w = rgb_bgr.shape[:2]
+    dv = depth_vis
+    if abs(scale - 1.0) > 1e-3:
+        sw = max(1, int(round(w * scale)))
+        sh = max(1, int(round(h * scale)))
+        dv = _center_place(
+            cv2.resize(depth_vis, (sw, sh), interpolation=cv2.INTER_NEAREST),
+            h, w)
+    shifted = np.zeros_like(dv)
+    sy, sx = int(shift_y), int(shift_x)
+    # source / destination ranges (clamped so out-of-canvas stays black)
+    dy0, dy1 = max(sy, 0), min(h + sy, h)
+    sy0, sy1 = max(-sy, 0), min(h - sy, h)
+    dx0, dx1 = max(sx, 0), min(w + sx, w)
+    sx0, sx1 = max(-sx, 0), min(w - sx, w)
+    if dy1 > dy0 and dx1 > dx0:
+        shifted[dy0:dy1, dx0:dx1] = dv[sy0:sy1, sx0:sx1]
+    return cv2.addWeighted(rgb_bgr, 1.0 - alpha, shifted, alpha, 0)
+
+
 def save_capture(scene_dir, version, rgba, depth_m):
     scene_dir.mkdir(parents=True, exist_ok=True)
     rgb_path = scene_dir / f"rgb_{version}.png"
@@ -237,6 +290,18 @@ def main():
     parser.add_argument("--warmup", type=float, default=2.0)
     parser.add_argument("--interval", type=float, default=1.0)
     parser.add_argument("--preview-only", action="store_true")
+    parser.add_argument("--preview-shift-y", type=int, default=0,
+                        help="Vertical px shift of depth over RGB in the "
+                             "preview overlay (depth>0 = down). Preview only; "
+                             "saved depth stays raw. Tune live with i/k in GUI.")
+    parser.add_argument("--preview-shift-x", type=int, default=0,
+                        help="Horizontal px shift of depth over RGB in the "
+                             "preview overlay (depth>0 = right). Preview only. "
+                             "Tune live with j/l in GUI.")
+    parser.add_argument("--preview-scale", type=float, default=1.0,
+                        help="Scale of depth over RGB in the preview overlay "
+                             "(>1 enlarges depth). Preview only; saved depth "
+                             "stays raw. Tune live with u/o in GUI.")
     args = parser.parse_args()
 
     scene_name = f"{args.index}_{args.object}"
@@ -268,7 +333,9 @@ def main():
                 try:
                     fs = sw_align.process(fs)
                 except Exception:
-                    pass
+                    fs = None
+            if fs is None:
+                continue
             df = fs.get_depth_frame()
             cf = fs.get_color_frame()
             if df is not None:
@@ -322,7 +389,16 @@ def main():
             d_resized = cv2.resize(d_crop, (TARGET_W, TARGET_H),
                                    interpolation=cv2.INTER_NEAREST)
             depth_vis = depth_to_colormap(d_resized)
-            return np.hstack([preview_bgr, depth_vis])
+            overlay = overlay_rgb_depth(preview_bgr, depth_vis,
+                                        args.preview_shift_y,
+                                        args.preview_shift_x,
+                                        args.preview_scale)
+            cv2.putText(
+                overlay,
+                f"shift=({args.preview_shift_x},{args.preview_shift_y}) "
+                f"scale={args.preview_scale:.2f}",
+                (8, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+            return np.hstack([preview_bgr, depth_vis, overlay])
 
         if args.headless:
             for i in range(args.num_captures):
@@ -359,7 +435,9 @@ def main():
                         try:
                             fs = sw_align.process(fs)
                         except Exception:
-                            pass
+                            fs = None
+                    if fs is None:
+                        continue
                     df = fs.get_depth_frame()
                     cf = fs.get_color_frame()
 
@@ -450,9 +528,14 @@ def main():
             print(f"\nDone. {captures} captured.")
         else:
             captures = 0
+            shift_y = args.preview_shift_y
+            shift_x = args.preview_shift_x
+            scale = args.preview_scale
             win = f"Femto Bolt | {scene_name}"
             cv2.namedWindow(win, cv2.WINDOW_AUTOSIZE)
-            print("Controls: 'c' = capture, 'q' = quit")
+            print("Controls: 'c' = capture, 'q' = quit, "
+                  "'i'/'k' = up/down, 'j'/'l' = left/right, "
+                  "'u'/'o' = depth bigger/smaller")
             while True:
                 df, cf = grab_synced(pipeline, sw_align, timeout_ms=500,
                                      max_retries=3)
@@ -478,11 +561,36 @@ def main():
                 d_resized = cv2.resize(d_crop, (TARGET_W, TARGET_H),
                                        interpolation=cv2.INTER_NEAREST)
                 depth_vis = depth_to_colormap(d_resized)
-                preview = np.hstack([preview_bgr, depth_vis])
+                overlay = overlay_rgb_depth(preview_bgr, depth_vis,
+                                            shift_y, shift_x, scale)
+                cv2.putText(overlay,
+                            f"shift=({shift_x},{shift_y}) scale={scale:.2f}",
+                            (8, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
+                            (255, 255, 255), 2)
+                preview = np.hstack([preview_bgr, depth_vis, overlay])
                 cv2.imshow(win, preview)
                 key = cv2.waitKey(1) & 0xFF
+                if key == ord("k"):
+                    shift_y += 1
+                    continue
+                if key == ord("i"):
+                    shift_y -= 1
+                    continue
+                if key == ord("l"):
+                    shift_x += 1
+                    continue
+                if key == ord("j"):
+                    shift_x -= 1
+                    continue
+                if key == ord("u"):
+                    scale += 0.02
+                    continue
+                if key == ord("o"):
+                    scale = max(0.1, scale - 0.02)
+                    continue
                 if key == ord("q"):
-                    print(f"Done. {captures} captured.")
+                    print(f"Done. {captures} captured "
+                          f"(shift=({shift_x},{shift_y}) scale={scale:.2f}).")
                     break
                 if key == ord("c"):
                     if args.preview_only:

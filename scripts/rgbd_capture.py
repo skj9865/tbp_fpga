@@ -37,11 +37,17 @@ OAKD_HFOV_NATIVE = 63.75
 CAPTURE_W, CAPTURE_H = TARGET_W, TARGET_H
 
 
-def build_pipeline():
+def build_pipeline(preset="DENSITY", max_distance_m=None, min_distance_m=None,
+                   fps=30, extended_disparity=False,
+                   color_resolution="THE_4_K"):
     """Build depthai v3 pipeline: ColorCamera + StereoDepth aligned to RGB.
 
     Captures at CAPTURE_W x CAPTURE_H (larger than target) so that center-crop
     to TARGET_W x TARGET_H matches iPad's 54.201 deg hfov without upscaling.
+
+    fps caps the RGB + mono frame rate. Keep 30 on USB3 hosts; drop low
+    (e.g. 5) on USB2 hosts (FPGA board) — two 640x480 streams at 30fps
+    exceed USB2's ~350Mbit ceiling and crash the VPU (X_LINK_ERROR).
 
     Returns (pipeline, rgb_output, depth_output) where outputs support
     createOutputQueue() for the v3 API.
@@ -53,64 +59,59 @@ def build_pipeline():
     cam_rgb.setPreviewSize(CAPTURE_W, CAPTURE_H)
     cam_rgb.setInterleaved(False)
     cam_rgb.setColorOrder(dai.ColorCameraProperties.ColorOrder.BGR)
-    # IMX378 native is 4056x3040 (12MP). Use 4K mode for preview downscale path.
-    cam_rgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_4_K)
-    cam_rgb.setFps(30)
+    # IMX378 native is 4056x3040 = 4:3. THE_4_K (3840x2160) is a 16:9 crop of
+    # that, so a 4:3 preview taken from it loses vertical FOV — while depth,
+    # aligned to CAM_A's native field, keeps it. Measured on captures: depth
+    # must be scaled ~1.22-1.28x vertically to match RGB edges. A 4:3 sensor
+    # mode (e.g. THE_1352X1012) keeps both on the same field.
+    cam_rgb.setResolution(
+        getattr(dai.ColorCameraProperties.SensorResolution, color_resolution)
+    )
+    print(f"Color sensor mode: {color_resolution}")
+    cam_rgb.setFps(fps)
 
     # Mono cameras for stereo depth (OAK-D Pro: OV9282, 1MP -> 800P available)
     mono_left = pipeline.create(dai.node.MonoCamera)
-    mono_left.setResolution(dai.MonoCameraProperties.SensorResolution.THE_800_P)
+    mono_left.setResolution(dai.MonoCameraProperties.SensorResolution.THE_400_P)
     mono_left.setBoardSocket(dai.CameraBoardSocket.CAM_B)
+    mono_left.setFps(fps)
 
     mono_right = pipeline.create(dai.node.MonoCamera)
-    mono_right.setResolution(dai.MonoCameraProperties.SensorResolution.THE_800_P)
+    mono_right.setResolution(dai.MonoCameraProperties.SensorResolution.THE_400_P)
     mono_right.setBoardSocket(dai.CameraBoardSocket.CAM_C)
+    mono_right.setFps(fps)
 
-    # Stereo depth. For glossy/textureless objects (e.g. Numenta mug), prefer
-    # accuracy over density — sparse-but-clean depth matches better than
-    # dense-but-noisy. Try FAST_ACCURACY; fall back to FAST_DENSITY.
+    # Stereo depth — depthai library DEFAULT settings. No manual post-processing
+    # tuning (decimation / temporal / spatial / speckle / threshold, subpixel,
+    # extended disparity all removed). Only the two structurally required calls
+    # are kept: align depth to the RGB frame, and output at capture size.
     stereo = pipeline.create(dai.node.StereoDepth)
-    try:
-        stereo.setDefaultProfilePreset(dai.node.StereoDepth.PresetMode.FAST_ACCURACY)
-        print("Preset: FAST_ACCURACY")
-    except AttributeError:
-        stereo.setDefaultProfilePreset(dai.node.StereoDepth.PresetMode.FAST_DENSITY)
-        print("Preset: FAST_DENSITY (FAST_ACCURACY unavailable)")
+    stereo.setDefaultProfilePreset(
+        getattr(dai.node.StereoDepth.PresetMode, preset.upper())
+    )
+    print(f"Preset: {preset.upper()}")
     stereo.setDepthAlign(dai.CameraBoardSocket.CAM_A)  # Align to RGB
-    stereo.setSubpixel(True)
-    stereo.setExtendedDisparity(True)
     stereo.setOutputSize(CAPTURE_W, CAPTURE_H)
-    try:
-        stereo.setLeftRightCheck(True)
-    except AttributeError:
-        pass
-    # Increase post-processing resources so speckle filter can use a bigger range
-    try:
-        stereo.setPostProcessingHardwareResources(3, 3)
-    except AttributeError:
-        pass
 
-    # Post-processing filters
-    pp = stereo.initialConfig.postProcessing
-    # Decimation: downsamples input depth before filters, suppresses noise
-    try:
-        pp.decimationFilter.decimationFactor = 2
-    except AttributeError:
-        pass
-    pp.speckleFilter.enable = True
-    pp.speckleFilter.speckleRange = 28
-    pp.temporalFilter.enable = True
-    # Stronger temporal smoothing (alpha closer to 0 = more smoothing)
-    try:
-        pp.temporalFilter.alpha = 0.3
-        pp.temporalFilter.delta = 20
-    except AttributeError:
-        pass
-    pp.spatialFilter.enable = True
-    pp.spatialFilter.holeFillingRadius = 5
-    pp.spatialFilter.numIterations = 2
-    pp.thresholdFilter.minRange = 200
-    pp.thresholdFilter.maxRange = 1500   # narrowed for closer mug capture (was 4000)
+    # Extended disparity doubles the disparity search range, which halves the
+    # minimum measurable distance (~35cm -> ~17cm at 400P with the 7.5cm
+    # baseline). Needed to shoot objects at the Robot Lab training distance
+    # (0.17-0.26m); below the default minimum the object returns no depth at
+    # all and only background pixels remain valid.
+    if extended_disparity:
+        stereo.setExtendedDisparity(True)
+        print("Extended disparity: ON (min distance ~35cm -> ~17cm)")
+
+    # Threshold filter = the OAK viewer's "max distance" slider. Clips pixels
+    # outside [min, max] (mm), which removes noisy far-background points and
+    # cleans the depth map. Only touched when the user passes --max/min-distance.
+    if max_distance_m is not None or min_distance_m is not None:
+        tf = stereo.initialConfig.postProcessing.thresholdFilter
+        if max_distance_m is not None:
+            tf.maxRange = int(max_distance_m * 1000)
+        if min_distance_m is not None:
+            tf.minRange = int(min_distance_m * 1000)
+        print(f"Threshold: min={tf.minRange}mm max={tf.maxRange}mm")
 
     mono_left.out.link(stereo.left)
     mono_right.out.link(stereo.right)
@@ -120,14 +121,15 @@ def build_pipeline():
     return pipeline, cam_rgb.preview, stereo.depth
 
 
-def depth_to_colormap(depth_mm):
+def depth_to_colormap(depth_mm, max_m=4.0):
     """Convert uint16 mm depth to a colormap for visualization.
 
-    Invalid (0) pixels shown in red.
+    Invalid (0) pixels shown in red. Normalization range = max_m (meters) so
+    the preview color scale matches the capture's max-distance clip.
     """
     invalid_mask = depth_mm == 0
-    # Normalize to 0-255 for colormap (clip at 4m)
-    depth_norm = np.clip(depth_mm.astype(np.float32) / 4000.0, 0, 1)
+    # Normalize to 0-255 for colormap (clip at max_m)
+    depth_norm = np.clip(depth_mm.astype(np.float32) / (max_m * 1000.0), 0, 1)
     depth_u8 = (depth_norm * 255).astype(np.uint8)
     colormap = cv2.applyColorMap(depth_u8, cv2.COLORMAP_JET)
     # Mark invalid pixels red
@@ -267,6 +269,24 @@ def main():
         "--flood-brightness", type=int, default=0,
         help="OAK-D Pro IR flood light brightness in mA (0-1500, default: 0=off)"
     )
+    parser.add_argument(
+        "--preset", default="DENSITY",
+        help="StereoDepth preset: DEFAULT, ACCURACY, DENSITY, FAST_ACCURACY, "
+             "FAST_DENSITY, FACE, HIGH_DETAIL, ROBOTICS (default: DENSITY)"
+    )
+    parser.add_argument(
+        "--max-distance", type=float, default=None,
+        help="Clip depth beyond this many meters (= OAK viewer 'max distance' "
+             "slider; removes far-background noise). Default: preset default."
+    )
+    parser.add_argument(
+        "--min-distance", type=float, default=None,
+        help="Clip depth closer than this many meters. Default: preset default."
+    )
+    parser.add_argument(
+        "--fps", type=int, default=30,
+        help="Camera frame rate (default: 30)"
+    )
     args = parser.parse_args()
 
     scene_name = f"{args.index}_{args.object}"
@@ -277,7 +297,9 @@ def main():
     else:
         version = detect_start_version(scene_dir)
 
-    mode = "HEADLESS" if args.headless else ("PREVIEW ONLY" if args.preview_only else f"CAPTURE (start v={version})")
+    mode = ("HEADLESS" if args.headless
+            else "PREVIEW ONLY" if args.preview_only
+            else f"CAPTURE (start v={version})")
     print(f"Scene: {scene_name} | Mode: {mode}")
     print(f"Output: {scene_dir}")
     print(f"Capture: native {TARGET_W}x{TARGET_H} (HFOV {OAKD_HFOV_NATIVE:.2f} deg)")
@@ -285,7 +307,14 @@ def main():
         print("Controls: 'c' = capture, 'q' = quit")
     print()
 
-    pipeline, rgb_out, depth_out = build_pipeline()
+    pipeline, rgb_out, depth_out = build_pipeline(
+        preset=args.preset,
+        max_distance_m=args.max_distance,
+        min_distance_m=args.min_distance,
+        fps=args.fps,
+    )
+    # Preview color scale matches the max-distance clip (falls back to 4m).
+    vis_max_m = args.max_distance if args.max_distance is not None else 4.0
 
     # depthai v3: create output queues directly from node outputs
     q_rgb = rgb_out.createOutputQueue()
@@ -359,7 +388,7 @@ def main():
                     depth_mm = in_depth.getFrame()
 
                 if bgr_frame is not None and depth_mm is not None:
-                    depth_vis = depth_to_colormap(depth_mm)
+                    depth_vis = depth_to_colormap(depth_mm, max_m=vis_max_m)
                     preview = np.hstack([bgr_frame, depth_vis])
                     cv2.imshow(win_name, preview)
 
