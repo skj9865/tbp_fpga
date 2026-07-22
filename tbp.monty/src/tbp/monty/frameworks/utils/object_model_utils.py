@@ -42,7 +42,10 @@ def torch_graph_to_numpy(torch_graph):
         NumpyGraph.
     """
     numpy_graph = {}
-    for key in list(torch_graph.keys):
+    # torch_geometric Data.keys was a property in old versions, a method in
+    # newer ones (>=2.4). Support both. See scripts/PATCHES.md patch 4.
+    _keys = torch_graph.keys() if callable(torch_graph.keys) else torch_graph.keys
+    for key in list(_keys):
         if isinstance(torch_graph[key], torch.Tensor):
             numpy_graph[key] = np.array(torch_graph[key])
         else:
