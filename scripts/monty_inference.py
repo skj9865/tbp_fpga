@@ -36,6 +36,9 @@ from tbp.monty.frameworks.experiments.seed import episode_seed
 from tbp.monty.frameworks.models.evidence_matching.burst_sampling import (
     BurstSamplingHypothesesUpdater,
 )
+from tbp.monty.frameworks.models.evidence_matching.hypotheses_updater import (
+    DefaultHypothesesUpdater,
+)
 from tbp.monty.frameworks.models.evidence_matching.learning_module import (
     EvidenceGraphLM,
 )
@@ -131,23 +134,50 @@ def create_learning_module():
         max_graph_size=0.3,
         num_model_voxels_per_dim=100,
         gsg=gsg,
+        # Hypotheses updater is selectable via MONTY_UPDATER for HW/SW work:
+        #  - "burst" (default): BurstSamplingHypothesesUpdater. Dynamic per-step
+        #    hypothesis count (fewer on average) -> faster wall-clock in SW.
+        #    Params validated on the D405 v3 set this session (both differ from
+        #    stock burst defaults of max_nneighbors=3, deletion_trigger_slope=0.5,
+        #    sampling_multiplier=0.4): deletion_trigger_slope=0.2 (0.3 dropped
+        #    accuracy 46->43%); sampling_multiplier kept at 0.4 (0.2 weakened
+        #    montys_brain 4/4->3/4). A/B: default is +8% accuracy (54 vs 46%) but
+        #    ~35% more steps; burst kept for real-time speed, demo objects tie 4/4.
+        #  - "default": DefaultHypothesesUpdater. FIXED hypothesis count per
+        #    object (sampled once at episode start, then pruned), which maps
+        #    cleanly onto a static PE array with no top-k / slope-tracking /
+        #    dynamic-memory overhead — the HW-implementation target.
+        **_updater_config(),
+    )
+    lm.learning_module_id = "learning_module_0"
+    return lm
+
+
+def _updater_config():
+    """Select the hypotheses updater via the MONTY_UPDATER env var.
+
+    'burst' (default) = BurstSamplingHypothesesUpdater (SW-fast, dynamic H).
+    'default'         = DefaultHypothesesUpdater (fixed H, HW-friendly).
+    """
+    mode = os.environ.get("MONTY_UPDATER", "burst").lower()
+    if mode == "default":
+        return dict(
+            hypotheses_updater_class=DefaultHypothesesUpdater,
+            # DefaultHypothesesUpdater doesn't take burst-only args
+            # (sampling_multiplier / deletion_trigger_slope).
+            hypotheses_updater_args=dict(max_nneighbors=10),
+        )
+    if mode != "burst":
+        raise ValueError(
+            f"MONTY_UPDATER must be 'burst' or 'default', got {mode!r}"
+        )
+    return dict(
         hypotheses_updater_class=BurstSamplingHypothesesUpdater,
-        # Burst-sampling params validated on the D405 v3 set this session and
-        # kept at these values (both differ from the stock burst defaults of
-        # max_nneighbors=3, deletion_trigger_slope=0.5, sampling_multiplier=0.4):
-        #  - deletion_trigger_slope=0.2: 0.3 dropped accuracy (43% vs 46%).
-        #  - sampling_multiplier left at the 0.4 default: 0.2 was 16% faster but
-        #    weakened the demo ace montys_brain (4/4 -> 3/4), 0.8 matched default
-        #    accuracy but was slower wall-clock. 0.4 is the speed/accuracy knee.
-        # A burst-vs-default A/B: default is +8% accuracy (54 vs 46%) but ~35%
-        # more steps; burst kept for real-time speed, and demo objects tie at 4/4.
         hypotheses_updater_args=dict(
             max_nneighbors=10,
             deletion_trigger_slope=0.2,
         ),
     )
-    lm.learning_module_id = "learning_module_0"
-    return lm
 
 
 def create_motor_system():
