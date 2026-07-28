@@ -1,0 +1,65 @@
+# D405 live inference on a Versal PetaLinux board (vp1502) — pinned deps.
+#
+# Verified 2026-07-28 on vp1502 (kernel 6.12.40-xilinx, Python 3.12.11, root,
+# system cv2 4.9.0 preinstalled). These pins are what actually run; the older
+# requirements-inference-minimal.txt has stale pins (numpy<=1.23.5, torch 1.13)
+# that break on this board.
+#
+# Setup (run once, online board):
+#   # 0) pip may be missing:
+#   #    curl -sS https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py && python /tmp/get-pip.py
+#   # 1) torch MUST be the +cpu build (the board's +cu build dies on CPU
+#   #    matmul with "Illegal instruction"); install it separately from the CPU index:
+#   python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+#   # 2) v4l2py for the camera (held-open V4L2 streams; ~20x faster than v4l2-ctl):
+#   python -m pip install v4l2py
+#   # 3) everything else (this file):
+#   python -m pip install -r scripts/requirements-board.txt
+#   # 3b) torch-geometric separately with --no-deps (needed to unpickle model.pt):
+#   python -m pip install --no-deps torch-geometric
+#   python -m pip install "numpy==1.26.4"   # re-pin: step 3 (skimage) bumps it to 2.x
+#   # 4) tbp.monty + runtime patch:
+#   python -m pip install --no-deps -e tbp.monty/
+#   python scripts/patch_lazy_imports.py
+#   # 5) verify (must print numpy 1.26.4 / cv2 4.9.0):
+#   python -c "import numpy,cv2,torch,tbp.monty; print(numpy.__version__, cv2.__version__)"
+#
+# CRITICAL — numpy pin. The system cv2 4.9.0 is built against numpy 1.x. Both
+# scikit-learn AND scikit-image will silently pull numpy 2.x, which breaks cv2
+# ("numpy.core.multiarray failed to import"). numpy==1.26.4 is pinned here, but
+# pip resolves top-down and a later package can still bump it, so if cv2 breaks,
+# just re-run:  python -m pip install "numpy==1.26.4"
+#
+# torch-geometric is installed --no-deps below to avoid it dragging numpy/others;
+# it's needed only to unpickle model.pt (torch_geometric.data.Data).
+
+# --- core (numpy pinned, scipy must match numpy 1.x) ---
+numpy==1.26.4
+scipy<1.14
+scikit-learn
+numpy-quaternion
+
+# --- model loading / unpickle ---
+# NOTE: torch-geometric itself is installed separately with --no-deps
+# (step 3b above) because --no-deps can't be scoped to one line in a
+# requirements file. These are its runtime deps that model.pt unpickle needs:
+psutil            # torch_geometric.loader imports it during model.pt unpickle
+xxhash            # torch_geometric
+aiohttp           # torch_geometric
+
+# --- image / plotting ---
+pillow
+scikit-image      # sensor_modules.py: skimage.color.rgb2hsv (NOTE: pulls numpy 2 — re-pin after)
+matplotlib
+
+# --- tbp.monty real imports (not lazy-patchable) ---
+omegaconf         # buffer.py
+hydra-core
+pydantic          # actions.py
+pydantic-core
+importlib_resources
+eval_type_backport
+pandas
+tqdm
+pyparsing
+requests
