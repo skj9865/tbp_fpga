@@ -77,6 +77,8 @@ def main():
     result = None
     dt = 0.0
     n_inf = 0
+    fps = 0.0
+    prev_t = None
     try:
         while True:
             depth = base.depth_from(next(diter))
@@ -84,9 +86,20 @@ def main():
             if depth is None or bgr is None:
                 continue
 
+            # Rolling preview FPS (EMA over the live grab->render loop).
+            now = time.time()
+            if prev_t is not None:
+                inst = 1.0 / max(now - prev_t, 1e-6)
+                fps = inst if fps == 0.0 else 0.9 * fps + 0.1 * inst
+            prev_t = now
+
             iso, info = isolate_depth(depth)
-            if show(base.render(bgr, depth, iso, info, args.max_distance,
-                                "live", result, dt, n_inf)):
+            live = base.render(bgr, depth, iso, info, args.max_distance,
+                               "live", result, dt, n_inf)
+            cv2.putText(live, f"{fps:.1f} fps", (8, live.shape[0] - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2,
+                        cv2.LINE_AA)
+            if show(live):
                 break
 
             if info.get("ok") and info.get("coverage_pct", 0) >= args.min_cov:
@@ -124,6 +137,7 @@ def main():
                                         n_inf)):
                         raise KeyboardInterrupt
                 base.drain([diter, citer], args.drain)
+                prev_t = None  # reset FPS timer so the inference pause isn't counted
     except KeyboardInterrupt:
         pass
     finally:
