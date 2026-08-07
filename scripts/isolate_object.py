@@ -112,22 +112,23 @@ def isolate_depth(depth_m,
     min_area = int(h * w * min_area_frac)
     center_label = labels[cy, cx]
     if center_label == 0:
-        # Center isn't on any blob -> pick the largest centered enough blob.
-        best_label = 0
-        best_score = -1.0
-        for lab in range(1, num):
-            mask = labels == lab
-            if mask.sum() < min_area:
-                continue
-            ys, xs = np.where(mask)
-            blob_cy = ys.mean()
-            blob_cx = xs.mean()
-            dist_to_center = np.hypot(blob_cy - cy, blob_cx - cx)
-            score = mask.sum() / max(1.0, dist_to_center)
-            if score > best_score:
-                best_score = score
-                best_label = lab
-        center_label = best_label
+        # Center isn't on any blob -> pick the largest, most-centered blob
+        # (score = area / distance-to-center). Vectorized over all components:
+        # a per-label Python loop (labels == lab per component) stalls the live
+        # preview to ~4 fps on an empty/noisy scene that has hundreds of blobs.
+        flat = labels.ravel()
+        areas = np.bincount(flat, minlength=num).astype(np.float64)
+        row_idx = np.repeat(np.arange(h), w)
+        col_idx = np.tile(np.arange(w), h)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            blob_cy = np.bincount(flat, weights=row_idx, minlength=num) / areas
+            blob_cx = np.bincount(flat, weights=col_idx, minlength=num) / areas
+            dist = np.hypot(blob_cy - cy, blob_cx - cx)
+            score = areas / np.maximum(1.0, dist)
+        score[0] = -1.0                    # background label
+        score[areas < min_area] = -1.0     # too small to be the object
+        best_label = int(np.argmax(score))
+        center_label = best_label if score[best_label] > 0 else 0
         if center_label == 0:
             return depth_m.copy(), dict(ok=False, reason="no centered blob",
                                         obj_dist=obj_dist, coverage_pct=0.0)
