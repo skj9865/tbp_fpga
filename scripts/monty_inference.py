@@ -506,7 +506,7 @@ def default_model_path():
     return os.path.join(
         monty_models,
         "pretrained_ycb_v12",
-        "surf_agent_1lm_numenta_lab_obj",
+        "surf_agent_1lm_tbp_robot_lab",
         "pretrained",
     )
 
