@@ -498,15 +498,25 @@ def save_csv(results, csv_path):
 # ============================================================================
 
 def default_model_path():
-    """Resolve default pretrained model path from environment."""
+    """Resolve default pretrained model path from environment.
+
+    Env overrides (no code edit / --model-path needed):
+      MONTY_MODELS      base models dir (default ~/tbp/results/monty/pretrained_models)
+      MONTY_MODEL_NAME  model dir under pretrained_ycb_v12 (default robot_lab).
+                        Set to surf_agent_1lm_numenta_lab_obj for the 12-object
+                        worldimages benchmark (standard/bright/dark_scenes).
+    """
     monty_models = os.environ.get(
         "MONTY_MODELS",
         os.path.expanduser("~/tbp/results/monty/pretrained_models"),
     )
+    model_name = os.environ.get(
+        "MONTY_MODEL_NAME", "surf_agent_1lm_tbp_robot_lab"
+    )
     return os.path.join(
         monty_models,
         "pretrained_ycb_v12",
-        "surf_agent_1lm_tbp_robot_lab",
+        model_name,
         "pretrained",
     )
 
