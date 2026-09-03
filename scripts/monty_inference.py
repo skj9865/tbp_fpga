@@ -522,9 +522,16 @@ def default_model_path():
 
 
 def default_data_path():
-    """Resolve default data path from environment."""
+    """Resolve default data path from environment.
+
+    Env overrides (no code edit / --data-path needed):
+      MONTY_DATA     base data dir (default ~/tbp/data)
+      MONTY_DATASET  dataset dir under worldimages (default standard_scenes).
+                     e.g. bright_scenes, dark_scenes.
+    """
     monty_data = os.environ.get("MONTY_DATA", os.path.expanduser("~/tbp/data"))
-    return os.path.join(monty_data, "worldimages", "standard_scenes")
+    dataset = os.environ.get("MONTY_DATASET", "standard_scenes")
+    return os.path.join(monty_data, "worldimages", dataset)
 
 
 def scan_all_episodes(data_path):
